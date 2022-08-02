@@ -31,7 +31,7 @@ JACO_TASKS = [
 TASKS = WALKER_TASKS + QUADRUPED_TASKS + JACO_TASKS
 
 PRIMAL_TASKS = {
-    'walker': 'walker_stand',
+    'walker': 'walker_run',
     'jaco': 'jaco_reach_top_left',
     'quadruped': 'quadruped_walk'
 }

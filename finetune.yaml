@@ -1,11 +1,11 @@
 defaults:
-  - agent: ddpg
+  - agent: cic
   - override hydra/launcher: submitit_local
 
 # mode
 reward_free: false
 # task settings
-task: walker_stand
+task: walker_flip
 obs_type: states # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 1 # set to 2 for pixels
@@ -17,8 +17,8 @@ num_seed_frames: 4000
 eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
-snapshot_ts: 100000
-snapshot_base_dir: ../../../pretrained_models
+snapshot_ts: 2000000
+snapshot_base_dir: ./pretrained_models
 snapshot_name: none
 # replay buffer
 replay_buffer_size: 1000000
@@ -31,7 +31,7 @@ seed: 1
 device: cuda
 save_video: true
 save_train_video: false
-use_tb: false
+use_tb: true
 use_wandb: false
 # experiment
 experiment: exp
