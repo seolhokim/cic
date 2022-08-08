@@ -247,3 +247,46 @@ class CICAgent(DDPGAgent):
                                  self.critic_target_tau)
 
         return metrics
+
+    def behavior_cloning(self, replay_iter, step):
+        metrics = dict()
+
+        if step % self.update_every_steps != 0:
+            return metrics
+
+        batch = next(replay_iter)
+
+        obs, action, reward, discount, next_obs, skill = utils.to_torch(
+            batch, self.device)
+
+        with torch.no_grad():
+            obs = self.aug_and_encode(obs)
+        
+            next_obs = self.aug_and_encode(next_obs)
+
+
+        if self.use_tb or self.use_wandb:
+            metrics['batch_reward'] = reward.mean().item()
+
+        # extend observations with skill
+        obs = torch.cat([obs, skill], dim=1)
+        next_obs = torch.cat([next_obs, skill], dim=1)
+        
+        stddev = utils.schedule(self.stddev_schedule, step)
+        dist = self.actor(obs, stddev)
+        '''
+        mse
+        rsample 해야함
+        agent_action = dist.sample(clip=self.stddev_clip)
+        
+        bc_loss = torch.mean((action - agent_action)**2)
+        '''
+        bc_loss = -torch.mean(dist.log_prob(action))
+        
+        self.actor_opt.zero_grad(set_to_none=True)
+        bc_loss.backward()
+        self.actor_opt.step()
+        # update actor
+        metrics['bc_loss'] = bc_loss.item()
+
+        return metrics
