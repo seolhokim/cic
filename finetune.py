@@ -153,7 +153,7 @@ class Workspace:
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
-        meta = self.agent.init_meta()
+        meta = self.agent.init_meta(np.random.uniform(0,1,64).astype(np.float32))
         self.replay_storage.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -178,7 +178,7 @@ class Workspace:
 
                 # reset env
                 time_step = self.train_env.reset()
-                meta = self.agent.init_meta()
+                meta = self.agent.init_meta(np.random.uniform(0,1,64).astype(np.float32))
                 self.replay_storage.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
 
@@ -189,7 +189,7 @@ class Workspace:
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
-                self.eval()
+                self.eval(np.random.uniform(0,1,64).astype(np.float32))
 
             meta = self.agent.update_meta(meta, self.global_step, time_step)
 
@@ -219,7 +219,36 @@ class Workspace:
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1
+    def gather_trajectories(self, skill, num_traj):
+        # predicates
+        train_until_step = utils.Until(num_traj,
+                                       self.cfg.action_repeat)
 
+        step = 0
+        time_step = self.train_env.reset()
+        meta = self.agent.init_meta(skill)
+        self.replay_storage.add(time_step, meta)
+        while train_until_step(step):
+            if time_step.last():
+                # reset env
+                time_step = self.train_env.reset()
+                self.replay_storage.add(time_step, meta)
+
+                episode_step = 0
+                episode_reward = 0
+
+            # sample action
+            with torch.no_grad(), utils.eval_mode(self.agent):
+                action = self.agent.act(time_step.observation,
+                                        meta,
+                                        self.global_step,
+                                        eval_mode=False)
+
+            # take env step
+            time_step = self.train_env.step(action)
+            self.replay_storage.add(time_step, meta)
+            step += 1
+            
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
         domain, _ = self.cfg.task.split('_', 1)
