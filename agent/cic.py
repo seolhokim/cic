@@ -280,8 +280,14 @@ class CICAgent(DDPGAgent):
         agent_action = dist.sample(clip=self.stddev_clip)
         
         bc_loss = torch.mean((action - agent_action)**2)
-        '''
+        
+        log_prob
         bc_loss = -torch.mean(dist.log_prob(action))
+        '''
+
+        agent_action = dist.sample(clip=self.stddev_clip)
+        
+        bc_loss = torch.mean((action - agent_action)**2)
         
         self.actor_opt.zero_grad(set_to_none=True)
         bc_loss.backward()

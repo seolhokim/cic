@@ -116,10 +116,10 @@ class Workspace:
             self._replay_iter = iter(self.replay_loader)
         return self._replay_iter
 
-    def eval(self):
+    def eval(self, skill):
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
-        meta = self.agent.init_meta()
+        meta = self.agent.init_meta(skill)
         while eval_until_episode(episode):
             time_step = self.eval_env.reset()
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
