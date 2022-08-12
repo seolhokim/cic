@@ -6,7 +6,7 @@ obs_type: ??? # to be specified later
 obs_shape: ??? # to be specified later
 action_shape: ??? # to be specified later
 device: ${device}
-lr: 1e-4
+lr: 1e-3
 critic_target_tau: 0.01
 update_every_steps: 2
 use_tb: ${use_tb}
@@ -17,6 +17,6 @@ feature_dim: 50
 stddev_schedule: 0.2
 stddev_clip: 0.3
 nstep: 3
-batch_size: 1024 # 256 for pixels
+batch_size: 256 # 256 for pixels
 init_critic: true
 update_encoder: ${update_encoder}

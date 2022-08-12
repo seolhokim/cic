@@ -1,11 +1,11 @@
 defaults:
-  - agent: cic
+  - agent: ddpg
   - override hydra/launcher: submitit_local
 
 # mode
 reward_free: false
 # task settings
-task: walker_flip
+task: walker_walk
 obs_type: states # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 1 # set to 2 for pixels

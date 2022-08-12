@@ -15,14 +15,24 @@ import torch
 from dm_env import specs
 
 import dmc
+import gym
 import utils
 from logger import Logger
 from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 import wandb 
-
+from tqdm import tqdm
 torch.backends.cudnn.benchmark = True
 
+from torch.utils.data.dataset import Dataset, random_split
+class ExpertDataSet(Dataset):
+    def __init__(self, expert_observations, expert_actions):
+        self.observations = expert_observations
+        self.actions = expert_actions
+    def __getitem__(self, index):
+        return (self.observations[index], self.actions[index])
+    def __len__(self):
+        return len(self.observations)
 
 def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg):
     cfg.obs_type = obs_type
@@ -219,36 +229,37 @@ class Workspace:
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1
-    def gather_trajectories(self, skill, num_traj):
+    def gather_trajectories(self, skill, num_interactions):
         # predicates
-        train_until_step = utils.Until(num_traj,
-                                       self.cfg.action_repeat)
-
-        step = 0
-        time_step = self.train_env.reset()
         meta = self.agent.init_meta(skill)
-        self.replay_storage.add(time_step, meta)
-        while train_until_step(step):
-            if time_step.last():
-                # reset env
-                time_step = self.train_env.reset()
-                self.replay_storage.add(time_step, meta)
-
-                episode_step = 0
-                episode_reward = 0
-
-            # sample action
+        if isinstance(self.eval_env.action_spec().shape, gym.spaces.Box):
+            expert_observations = np.empty((num_interactions,)   +self.eval_env.observation_spec().shape)
+            expert_actions = np.empty((num_interactions,) + (self.eval_env.action_spec().shape[0],))
+        else:
+            expert_observations = np.empty((num_interactions,) + self.eval_env.observation_spec().shape)
+            expert_actions = np.empty((num_interactions,) + self.eval_env.action_spec().shape)
+        obs = self.eval_env.reset().observation
+        for i in tqdm(range(num_interactions)):
+          # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
-                action = self.agent.act(time_step.observation,
+                action = self.agent.act(obs,
                                         meta,
-                                        self.global_step,
-                                        eval_mode=False)
-
-            # take env step
-            time_step = self.train_env.step(action)
-            self.replay_storage.add(time_step, meta)
-            step += 1
-            
+                                        0,
+                                        eval_mode=True)
+            expert_observations[i] = obs
+            expert_actions[i] = action
+            timestep = self.eval_env.step(action)
+            obs = timestep.observation
+            done = timestep.last()
+            if done:
+                obs = self.eval_env.reset().observation
+        expert_dataset = ExpertDataSet(expert_observations, expert_actions)
+        train_size = int(0.8 * len(expert_dataset))
+        test_size = len(expert_dataset) - train_size
+        train_expert_dataset, test_expert_dataset = random_split(
+             expert_dataset, [train_size, test_size]
+             )
+        return train_expert_dataset, test_expert_dataset
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
         domain, _ = self.cfg.task.split('_', 1)

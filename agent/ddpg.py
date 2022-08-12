@@ -60,10 +60,12 @@ class Actor(nn.Module):
         h = self.trunk(obs)
 
         mu = self.policy(h)
-        mu = torch.tanh(mu)
+        #mu = torch.tanh(mu)
         std = torch.ones_like(mu) * std
 
-        dist = utils.TruncatedNormal(mu, std)
+        #dist = utils.TruncatedNormal(mu, std)
+        from torch.distributions.normal import Normal
+        dist = Normal(mu,std)
         return dist
 
 
@@ -124,7 +126,7 @@ class DDPGAgent:
     def __init__(self, name, reward_free, obs_type, obs_shape, action_shape,
                  device, lr, feature_dim, hidden_dim, critic_target_tau,
                  num_expl_steps, update_every_steps, stddev_schedule, nstep,
-                 batch_size, stddev_clip, init_critic, use_tb, use_wandb,  meta_dim=0): #update_encoder,
+                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, meta_dim=0): #update_encoder,
         self.reward_free = reward_free
         self.obs_type = obs_type
         self.action_dim = action_shape[0]
@@ -212,9 +214,13 @@ class DDPGAgent:
         if eval_mode:
             action = dist.mean
         else:
+            '''
             action = dist.sample(clip=None)
+            '''
+            action = dist.rsample()
             if step < self.num_expl_steps:
                 action.uniform_(-1.0, 1.0)
+            
         return action.cpu().numpy()[0]
 
     def update_critic(self, obs, action, reward, discount, next_obs, step):
@@ -258,7 +264,10 @@ class DDPGAgent:
 
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(obs, stddev)
+        '''
         action = dist.sample(clip=self.stddev_clip)
+        '''
+        action = dist.rsample()
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         Q1, Q2 = self.critic(obs, action)
         Q = torch.min(Q1, Q2)
@@ -310,5 +319,52 @@ class DDPGAgent:
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target,
                                  self.critic_target_tau)
+
+        return metrics
+    def behavior_cloning(self, replay_iter, step):
+        metrics = dict()
+
+        if step % self.update_every_steps != 0:
+            return metrics
+
+        batch = next(replay_iter)
+
+        obs, action, reward, discount, next_obs = utils.to_torch(
+            batch, self.device)
+
+        with torch.no_grad():
+            obs = self.aug_and_encode(obs)
+        
+            next_obs = self.aug_and_encode(next_obs)
+
+
+        if self.use_tb or self.use_wandb:
+            metrics['batch_reward'] = reward.mean().item()
+
+        
+        stddev = utils.schedule(self.stddev_schedule, step)
+        dist = self.actor(obs, stddev)
+        '''
+        mse
+        rsample 해야함
+        agent_action = dist.sample(clip=self.stddev_clip)
+        
+        bc_loss = torch.mean((action - agent_action)**2)
+        
+        log_prob
+        bc_loss = -torch.mean(dist.log_prob(action))
+        '''
+
+        #agent_action = dist.sample(clip=self.stddev_clip)
+        agent_action = dist.rsample()
+        
+        #bc_loss = torch.mean((action - agent_action)**2)
+        criterion = nn.MSELoss()
+        bc_loss = criterion(action, agent_action)
+        self.actor_opt.zero_grad(set_to_none=True)
+        bc_loss.backward()
+        self.actor_opt.step()
+        # update actor
+        metrics['bc_loss'] = bc_loss.item()
 
         return metrics
