@@ -79,6 +79,8 @@ class Workspace:
 
         # get meta specs
         meta_specs = self.agent.get_meta_specs()
+        self.skill_used = len(meta_specs) > 0 #skill is used in this case
+        
         # create replay buffer
         data_specs = (self.train_env.observation_spec(),
                       self.train_env.action_spec(),
@@ -232,11 +234,14 @@ class Workspace:
     def gather_trajectories(self, skill, num_interactions):
         # predicates
         meta = self.agent.init_meta(skill)
+        if self.skill_used : 
+            obs_shape = (self.eval_env.observation_spec().shape[0] + meta['skill'].shape[0],)
+        else :
+            obs_shape = self.eval_env.observation_spec().shape
+        expert_observations = np.empty((num_interactions,) + obs_shape)
         if isinstance(self.eval_env.action_spec().shape, gym.spaces.Box):
-            expert_observations = np.empty((num_interactions,)   +self.eval_env.observation_spec().shape)
             expert_actions = np.empty((num_interactions,) + (self.eval_env.action_spec().shape[0],))
         else:
-            expert_observations = np.empty((num_interactions,) + self.eval_env.observation_spec().shape)
             expert_actions = np.empty((num_interactions,) + self.eval_env.action_spec().shape)
         obs = self.eval_env.reset().observation
         for i in tqdm(range(num_interactions)):
@@ -246,6 +251,9 @@ class Workspace:
                                         meta,
                                         0,
                                         eval_mode=True)
+                action = np.clip(action,-1,1)
+            if self.skill_used :
+                obs = np.concatenate((obs, skill))
             expert_observations[i] = obs
             expert_actions[i] = action
             timestep = self.eval_env.step(action)

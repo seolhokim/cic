@@ -19,4 +19,3 @@ stddev_clip: 0.3
 nstep: 3
 batch_size: 256 # 256 for pixels
 init_critic: true
-update_encoder: ${update_encoder}
