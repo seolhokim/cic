@@ -321,50 +321,29 @@ class DDPGAgent:
                                  self.critic_target_tau)
 
         return metrics
-    def behavior_cloning(self, replay_iter, step):
+    def behavior_cloning(self, train_loader, optimizer, epochs):
         metrics = dict()
+        criterion = nn.MSELoss()
+        self.actor.train()
+        total_loss = 0
+        for epoch in range(epochs):
+            for batch_idx, (data, target) in enumerate(train_loader):
+                data, target = data.to(self.device), target.to(self.device)
+                dist = self.actor(torch.tensor(data, dtype=torch.float), 0.1)
+                action = dist.rsample()
+                
+                loss = criterion(action, torch.tensor(target, dtype = torch.float))
+                total_loss += loss
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-        if step % self.update_every_steps != 0:
-            return metrics
-
-        batch = next(replay_iter)
-
-        obs, action, reward, discount, next_obs = utils.to_torch(
-            batch, self.device)
-
-        with torch.no_grad():
-            obs = self.aug_and_encode(obs)
-        
-            next_obs = self.aug_and_encode(next_obs)
-
-
-        if self.use_tb or self.use_wandb:
-            metrics['batch_reward'] = reward.mean().item()
-
-        
-        stddev = utils.schedule(self.stddev_schedule, step)
-        dist = self.actor(obs, stddev)
         '''
-        mse
-        rsample 해야함
-        agent_action = dist.sample(clip=self.stddev_clip)
-        
-        bc_loss = torch.mean((action - agent_action)**2)
-        
         log_prob
         bc_loss = -torch.mean(dist.log_prob(action))
         '''
 
-        #agent_action = dist.sample(clip=self.stddev_clip)
-        agent_action = dist.rsample()
-        
-        #bc_loss = torch.mean((action - agent_action)**2)
-        criterion = nn.MSELoss()
-        bc_loss = criterion(action, agent_action)
-        self.actor_opt.zero_grad(set_to_none=True)
-        bc_loss.backward()
-        self.actor_opt.step()
         # update actor
-        metrics['bc_loss'] = bc_loss.item()
+        metrics['bc_loss'] = (total_loss/epochs).item()
 
         return metrics
