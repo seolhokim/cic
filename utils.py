@@ -11,6 +11,28 @@ from omegaconf import OmegaConf
 from torch import distributions as pyd
 from torch.distributions.utils import _standard_normal
 
+from torch.utils.data.dataset import Dataset, random_split
+
+class ExpertDataSet(Dataset):
+    def __init__(self, expert_observations, expert_actions):
+        self.observations = expert_observations
+        self.actions = expert_actions
+    def __getitem__(self, index):
+        return (self.observations[index], self.actions[index])
+    def __len__(self):
+        return len(self.observations)
+    def add(self, new_dataset : 'ExpertDataSet'):
+        self.observations = np.concatenate((self.observations, new_dataset.observations))
+        self.actions = np.concatenate((self.actions, new_dataset.actions))
+        
+        
+def dataset_random_split(expert_dataset : ExpertDataSet):
+    train_size = int(0.8 * len(expert_dataset))
+    test_size = len(expert_dataset) - train_size
+    train_expert_dataset, test_expert_dataset = random_split(
+         expert_dataset, [train_size, test_size]
+         )
+    return train_expert_dataset, test_expert_dataset
 
 class eval_mode:
     def __init__(self, *models):

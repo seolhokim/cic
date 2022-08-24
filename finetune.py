@@ -17,22 +17,13 @@ from dm_env import specs
 import dmc
 import gym
 import utils
+from utils import ExpertDataSet, dataset_random_split
 from logger import Logger
 from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 import wandb 
 from tqdm import tqdm
 torch.backends.cudnn.benchmark = True
-
-from torch.utils.data.dataset import Dataset, random_split
-class ExpertDataSet(Dataset):
-    def __init__(self, expert_observations, expert_actions):
-        self.observations = expert_observations
-        self.actions = expert_actions
-    def __getitem__(self, index):
-        return (self.observations[index], self.actions[index])
-    def __len__(self):
-        return len(self.observations)
 
 def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg):
     cfg.obs_type = obs_type
@@ -262,11 +253,8 @@ class Workspace:
             if done:
                 obs = self.eval_env.reset().observation
         expert_dataset = ExpertDataSet(expert_observations, expert_actions)
-        train_size = int(0.8 * len(expert_dataset))
-        test_size = len(expert_dataset) - train_size
-        train_expert_dataset, test_expert_dataset = random_split(
-             expert_dataset, [train_size, test_size]
-             )
+        return expert_dataset
+     
         return train_expert_dataset, test_expert_dataset
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
