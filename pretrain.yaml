@@ -1,9 +1,9 @@
 defaults:
-  - agent: cic
+  - agent: ddpg
   - override hydra/launcher: submitit_local
 
 # mode
-reward_free: true
+reward_free: false
 # task settings
 domain: walker # primal task will be infered in runtime
 obs_type: states # [states, pixels]

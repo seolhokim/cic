@@ -229,7 +229,8 @@ class DDPGAgent:
         with torch.no_grad():
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
-            next_action = dist.sample(clip=self.stddev_clip)
+            #next_action = dist.sample(clip=self.stddev_clip)
+            next_action = dist.rsample()
             target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
             target_V = torch.min(target_Q1, target_Q2)
             target_Q = reward + (discount * target_V)

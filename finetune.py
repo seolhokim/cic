@@ -194,7 +194,7 @@ class Workspace:
                                 self.global_frame)
                 self.eval(np.random.uniform(0,1,64).astype(np.float32))
 
-            meta = self.agent.update_meta(meta, self.global_step, time_step)
+            #meta = self.agent.update_meta(meta, self.global_step, time_step)
 
             if hasattr(self.agent, "regress_meta"):
                 repeat = self.cfg.action_repeat

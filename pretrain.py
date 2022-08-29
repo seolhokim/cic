@@ -143,7 +143,7 @@ class Workspace:
             log('episode', self.global_episode)
             log('step', self.global_step)
 
-    def train(self):
+    def train(self, skill = None):
         # predicates
         train_until_step = utils.Until(self.cfg.num_train_frames,
                                        self.cfg.action_repeat)
@@ -154,7 +154,9 @@ class Workspace:
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
-        meta = self.agent.init_meta()
+        if skill == None:
+            skill = np.zeros(64).astype(np.float32)
+        meta = self.agent.init_meta(skill)
         self.replay_storage.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -179,7 +181,7 @@ class Workspace:
 
                 # reset env
                 time_step = self.train_env.reset()
-                meta = self.agent.init_meta()
+                meta = self.agent.init_meta(skill)
                 self.replay_storage.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
@@ -193,9 +195,8 @@ class Workspace:
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
-                self.eval()
-
-            meta = self.agent.update_meta(meta, self.global_step, time_step)
+                self.eval(skill)
+            #meta = self.agent.update_meta(meta, self.global_step, time_step)
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
                 action = self.agent.act(time_step.observation,
