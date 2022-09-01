@@ -11,13 +11,13 @@ frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 1 # set to 2 for pixels
 discount: 0.99
 # train settings
-num_train_frames: 100010
+num_train_frames: 200010
 num_seed_frames: 4000
 # eval
 eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
-snapshot_ts: 2000000
+snapshot_ts: 0
 snapshot_base_dir: ./pretrained_models
 snapshot_name: none
 # replay buffer

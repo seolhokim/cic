@@ -60,12 +60,12 @@ class Actor(nn.Module):
         h = self.trunk(obs)
 
         mu = self.policy(h)
-        #mu = torch.tanh(mu)
+        mu = torch.tanh(mu)
         std = torch.ones_like(mu) * std
 
-        #dist = utils.TruncatedNormal(mu, std)
-        from torch.distributions.normal import Normal
-        dist = Normal(mu,std)
+        dist = utils.TruncatedNormal(mu, std)
+        #from torch.distributions.normal import Normal
+        #dist = Normal(mu,std)
         return dist
 
 
@@ -154,7 +154,7 @@ class DDPGAgent:
         else:
             self.aug = nn.Identity()
             self.encoder = nn.Identity()
-            self.obs_dim = obs_shape[0] + meta_dim
+            self.obs_dim = obs_shape[0] + meta_dim #test    
 
         self.actor = Actor(obs_type, self.obs_dim, self.action_dim,
                            feature_dim, hidden_dim).to(device)
@@ -208,6 +208,7 @@ class DDPGAgent:
             value = torch.as_tensor(value, device=self.device).unsqueeze(0)
             inputs.append(value)
         inpt = torch.cat(inputs, dim=-1)
+        ##inpt = h #test   
         #assert obs.shape[-1] == self.obs_shape[-1]
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(inpt, stddev)
@@ -229,8 +230,8 @@ class DDPGAgent:
         with torch.no_grad():
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
-            #next_action = dist.sample(clip=self.stddev_clip)
-            next_action = dist.rsample()
+            next_action = dist.sample(clip=self.stddev_clip)
+            #next_action = dist.rsample()
             target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
             target_V = torch.min(target_Q1, target_Q2)
             target_Q = reward + (discount * target_V)
@@ -265,10 +266,8 @@ class DDPGAgent:
 
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(obs, stddev)
-        '''
         action = dist.sample(clip=self.stddev_clip)
-        '''
-        action = dist.rsample()
+        #action = dist.rsample()
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         Q1, Q2 = self.critic(obs, action)
         Q = torch.min(Q1, Q2)
@@ -332,7 +331,9 @@ class DDPGAgent:
             for batch_idx, (data, target) in enumerate(train_loader):
                 data, target = data.to(self.device), target.to(self.device)
                 dist = self.actor(torch.tensor(data, dtype=torch.float), 0.1)
-                action = dist.rsample()
+                
+                #action = dist.rsample()
+                action = dist.sample(clip=self.stddev_clip)
                 
                 loss = criterion(action, torch.tensor(target, dtype = torch.float))
                 total_loss += loss

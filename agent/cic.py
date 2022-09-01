@@ -119,6 +119,7 @@ class CICAgent(DDPGAgent):
         
 
         super().__init__(**kwargs)
+        '''
         # create cic first
         self.cic = CIC(self.obs_dim - skill_dim, skill_dim,
                            kwargs['hidden_dim'], project_skill).to(kwargs['device'])
@@ -128,7 +129,7 @@ class CICAgent(DDPGAgent):
                                                 lr=self.lr)
 
         self.cic.train()
-
+        '''
     def get_meta_specs(self):
         return (specs.Array((self.skill_dim,), np.float32, 'skill'),)
 
@@ -232,8 +233,8 @@ class CICAgent(DDPGAgent):
             metrics['batch_reward'] = reward.mean().item()
 
         # extend observations with skill
-        obs = torch.cat([obs, skill], dim=1)
-        next_obs = torch.cat([next_obs, skill], dim=1)
+        obs = torch.cat([obs, skill], dim=1) #test   
+        next_obs = torch.cat([next_obs, skill], dim=1)#test   
 
         # update critic
         metrics.update(
