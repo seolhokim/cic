@@ -240,9 +240,9 @@ class Workspace:
             with torch.no_grad(), utils.eval_mode(self.agent):
                 action = self.agent.act(obs,
                                         meta,
-                                        0,
+                                        i,
                                         eval_mode=True)
-                action = np.clip(action,-1,1)
+                #action = np.clip(action,-1,1)
             if self.skill_used :
                 obs = np.concatenate((obs, skill))
             expert_observations[i] = obs

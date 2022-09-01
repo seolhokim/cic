@@ -1,5 +1,5 @@
 defaults:
-  - agent: ddpg
+  - agent: cic
   - override hydra/launcher: submitit_local
 
 # mode

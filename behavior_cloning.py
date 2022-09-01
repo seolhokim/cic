@@ -18,10 +18,8 @@ f_workspace = fW(cfg)
 
 cfg = hydra.compose(config_name='pretrain.yaml', overrides=[])
 p_workspace = pW(cfg)
-
-skill = np.zeros(64).astype(np.float32)
-#skill = np.random.uniform(0,1,64).astype(np.float32)
-
+#skill = np.zeros(1).astype(np.float32)
+skill = np.random.uniform(0,1,64).astype(np.float32)
 expert_dataset = f_workspace.gather_trajectories(skill, 10000)
 train_expert_dataset, test_expert_dataset = dataset_random_split(expert_dataset)
 

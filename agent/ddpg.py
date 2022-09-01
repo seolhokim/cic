@@ -154,8 +154,7 @@ class DDPGAgent:
         else:
             self.aug = nn.Identity()
             self.encoder = nn.Identity()
-            self.obs_dim = obs_shape[0] + meta_dim #test    
-
+            self.obs_dim = obs_shape[0] + meta_dim #test  
         self.actor = Actor(obs_type, self.obs_dim, self.action_dim,
                            feature_dim, hidden_dim).to(device)
 
@@ -329,13 +328,14 @@ class DDPGAgent:
         total_loss = 0
         for epoch in range(epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
-                data, target = data.to(self.device), target.to(self.device)
-                dist = self.actor(torch.tensor(data, dtype=torch.float), 0.1)
+                data, target = torch.tensor(data, dtype=torch.float).to(self.device), torch.tensor(target, dtype=torch.float).to(self.device)
+                stddev = utils.schedule(self.stddev_schedule, 0) # step = 0  change
+                dist = self.actor(data, stddev)
                 
                 #action = dist.rsample()
                 action = dist.sample(clip=self.stddev_clip)
                 
-                loss = criterion(action, torch.tensor(target, dtype = torch.float))
+                loss = criterion(action, target)
                 total_loss += loss
                 optimizer.zero_grad()
                 loss.backward()
