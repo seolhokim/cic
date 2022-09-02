@@ -156,7 +156,7 @@ class Workspace:
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
-        meta = self.agent.init_meta(np.zeros((1,)).astype(np.float32)) ##np.random.uniform(0,1,1)
+        meta = self.agent.init_meta(np.zeros((self.agent.skill_dim,)).astype(np.float32)) ##np.random.uniform(0,1,1)
         self.replay_storage.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -181,7 +181,7 @@ class Workspace:
 
                 # reset env
                 time_step = self.train_env.reset()
-                meta = self.agent.init_meta(np.zeros((1,)).astype(np.float32)) ##np.random.uniform(0,1,1)
+                meta = self.agent.init_meta(np.zeros((self.agent.skill_dim,)).astype(np.float32)) ##np.random.uniform(0,1,1)
                 self.replay_storage.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
 
@@ -192,7 +192,7 @@ class Workspace:
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
-                self.eval(np.zeros((1,)).astype(np.float32)) ##np.random.uniform(0,1,1)
+                self.eval(np.zeros((self.agent.skill_dim,)).astype(np.float32)) ##np.random.uniform(0,1,1)
 
             #meta = self.agent.update_meta(meta, self.global_step, time_step)
 
