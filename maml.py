@@ -75,7 +75,7 @@ class MAML:
         temp_weights = [w.clone() for w in self.actor_weights]
         for epoch in range(self.bc_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
-                data, target = torch.tensor(data, dtype=torch.float).to(self.p_workspace.device), torch.tensor(target, dtype=torch.float).to(self.p_workspace.device)
+                data, target = data.type(torch.float).to(self.p_workspace.device), target.type(torch.float).to(self.p_workspace.device)
                 stddev = utils.schedule(self.p_workspace.agent.stddev_schedule, 0) # step = 0  change
                 dist = self.agent(data, stddev, temp_weights)
 
@@ -88,13 +88,13 @@ class MAML:
                 total_train_loss += loss
 
         for data, target in test_loader:
-            data, target = torch.tensor(data, dtype=torch.float).to(self.p_workspace.device), torch.tensor(target, dtype=torch.float).to(self.p_workspace.device)
+            data, target = data.type(torch.float).to(self.p_workspace.device), target.type(torch.float).to(self.p_workspace.device)
             stddev = utils.schedule(self.p_workspace.agent.stddev_schedule, 0) # step = 0  change
             dist = self.agent(data, stddev, temp_weights)
 
             #action = dist.rsample()
             action = dist.sample(clip=self.p_workspace.agent.stddev_clip)
-            loss = self.criterion(action, torch.tensor(target, dtype = torch.float))
+            loss = self.criterion(action, target)
             total_test_loss += loss
         # update actor
         metrics['bc_train_loss'] = (total_train_loss/epochs).item()

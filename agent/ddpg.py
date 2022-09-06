@@ -344,7 +344,7 @@ class DDPGAgent:
         total_loss = 0
         for epoch in range(epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
-                data, target = torch.tensor(data, dtype=torch.float).to(self.device), torch.tensor(target, dtype=torch.float).to(self.device)
+                data, target = data.type(torch.float).to(self.device), target.type(torch.float).to(self.device)
                 stddev = utils.schedule(self.stddev_schedule, 0) # step = 0  change
                 dist = self.actor(data, stddev)
                 
