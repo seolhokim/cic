@@ -29,7 +29,7 @@ class Encoder(nn.Module):
         h = h.view(h.shape[0], -1)
         return h
 
-
+import torch.nn as nn
 class Actor(nn.Module):
     def __init__(self, obs_type, obs_dim, action_dim, feature_dim, hidden_dim):
         super().__init__()
@@ -56,10 +56,27 @@ class Actor(nn.Module):
 
         self.apply(utils.weight_init)
 
-    def forward(self, obs, std):
-        h = self.trunk(obs)
+    def forward(self, obs, std, params = None):
+        if params == None :
+            h = self.trunk(obs)
+            mu = self.policy(h)
 
-        mu = self.policy(h)
+        else :
+            '''
+            x = F.linear(obs,params['trunk.0.weight'],params['trunk.0.bias'])
+            x = F.layer_norm(x, x.size()[1:], params['trunk.1.weight'],params['trunk.1.bias'])
+            x = torch.tanh(x)
+            x = F.linear(x,params['policy.0.weight'],params['policy.0.bias'])
+            x = torch.relu(x)
+            mu = F.linear(x,params['policy.2.weight'],params['policy.2.bias'])
+            '''
+            
+            x = F.linear(obs,params[0],params[1])
+            x = F.layer_norm(x, x.size()[1:], params[2],params[3])
+            x = torch.tanh(x)
+            x = F.linear(x,params[4],params[5])
+            x = torch.relu(x)
+            mu = F.linear(x,params[6],params[7])
         mu = torch.tanh(mu)
         std = torch.ones_like(mu) * std
 
@@ -67,7 +84,6 @@ class Actor(nn.Module):
         #from torch.distributions.normal import Normal
         #dist = Normal(mu,std)
         return dist
-
 
 class Critic(nn.Module):
     def __init__(self, obs_type, obs_dim, action_dim, feature_dim, hidden_dim):
