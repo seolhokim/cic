@@ -33,9 +33,9 @@ class MAML:
         
         self.batch_size = 32
 
-        self.outer_loop_epochs = 100
-        self.inner_loop_epochs = 1
-        self.inner_lr = 0.001
+        self.outer_loop_epochs = 1000
+        self.inner_loop_epochs = 10
+        self.inner_lr = 0.05
         self.outer_lr = 0.001
         self.bc_epochs = 10
         self.skill_num = 64
@@ -45,7 +45,6 @@ class MAML:
         
         self.actor_weights = list(self.agent.parameters())
         self.actor_opt = torch.optim.Adam(self.actor_weights, lr = self.outer_lr)
-
     def train(self):
         for outer_epoch in range(self.outer_loop_epochs):
             print("outer_loop_epochs :", outer_epoch)
@@ -58,6 +57,7 @@ class MAML:
                 train_loader = torch.utils.data.DataLoader(dataset=train_expert_dataset, batch_size=self.batch_size, shuffle=True)
                 test_loader = torch.utils.data.DataLoader(dataset=test_expert_dataset, batch_size=len(test_expert_dataset), shuffle=True)
 
+                #loss, metrics = self.inner_loop(train_loader, test_loader)
                 loss, metrics = self.inner_loop(train_loader, test_loader)
                 outer_loss += loss
                 print(metrics)
@@ -67,37 +67,78 @@ class MAML:
                 w.grad = g
             for p in self.actor_weights:
                 p.grad.data.mul_(1.0 / self.inner_loop_epochs)
-            self.actor_opt.step()
+            self.actor_opt.step()    
+    def inner_loop_test(self, train_loader, test_loader):
+        metrics = dict()
+        total_train_loss = 0
+        for epoch in range(self.bc_epochs):
+            for batch_idx, (data, target) in enumerate(train_loader):
+                data, target = data.type(torch.float).to(self.p_workspace.device), target.type(torch.float).to(self.p_workspace.device)
+                stddev = utils.schedule(self.p_workspace.agent.stddev_schedule, 0) # step = 0  change
+                
+                #dist = self.agent(data, stddev, temp_weights)
+                dist = self.agent(data, stddev)
+
+                action = dist.sample(clip=self.p_workspace.agent.stddev_clip)
+
+                loss = self.criterion(action, target)
+                self.agent.zero_grad()
+                loss.backward()
+                self.actor_inner_loop_test_opt.step()
+                total_train_loss += loss
+        metrics['bc_train_loss'] = (total_train_loss/self.bc_epochs).item()
+        return total_train_loss, metrics
     def inner_loop(self, train_loader, test_loader):
         metrics = dict()
         total_train_loss = 0
         total_test_loss = 0
         temp_weights = [w.clone() for w in self.actor_weights]
+        # temp_weights = self.actor_weights works 5
+        # actor_inner_loop_test_opt = torch.optim.Adam(temp_weights, lr = self.inner_lr) 5
         for epoch in range(self.bc_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
                 data, target = data.type(torch.float).to(self.p_workspace.device), target.type(torch.float).to(self.p_workspace.device)
                 stddev = utils.schedule(self.p_workspace.agent.stddev_schedule, 0) # step = 0  change
-                dist = self.agent(data, stddev, temp_weights)
-
-                #action = dist.rsample()
+                
+                #dist = self.agent(data, stddev, temp_weights)
+                #dist = self.agent(data, stddev, self.actor_weights)
+                #dist = self.agent(data, stddev)
+                #dist = self.agent(data, stddev, self.actor_weights)
+                dist = self.agent(data, stddev, temp_weights) #works 5
+                
                 action = dist.sample(clip=self.p_workspace.agent.stddev_clip)
 
                 loss = self.criterion(action, target)
-                grad = torch.autograd.grad(loss, temp_weights)
-                temp_weights = [w - self.inner_lr * g for w, g in zip(temp_weights, grad)]
-                total_train_loss += loss
+                
+                #grad = torch.autograd.grad(loss, temp_weights)
+                #grad = torch.autograd.grad(loss, self.actor_weights)
+                #grad = torch.autograd.grad(loss, self.agent.parameters())
+                #grad = torch.autograd.grad(loss, self.actor_weights)
+                grad = torch.autograd.grad(loss, temp_weights) #works 5
 
+                #temp_weights = [w - self.inner_lr * g for w, g in zip(temp_weights, grad)] 
+                #self.actor_weights = [w - self.inner_lr * g for w, g in zip(self.actor_weights, grad)] 
+                #for w, g in zip(temp_weights, grad): #5 works
+                #    w.grad = g #5works
+
+                #actor_inner_loop_test_opt.step() 5 works
+                #print(grad[0][0])
+                temp_weights = [w - self.inner_lr * g for w, g in zip(temp_weights, grad)] 
+                total_train_loss += loss
+                #self.actor_weights = [nn.Parameter(w.detach()) for w in temp_weights]
+                
         for data, target in test_loader:
             data, target = data.type(torch.float).to(self.p_workspace.device), target.type(torch.float).to(self.p_workspace.device)
             stddev = utils.schedule(self.p_workspace.agent.stddev_schedule, 0) # step = 0  change
-            dist = self.agent(data, stddev, temp_weights)
-
-            #action = dist.rsample()
+            
+            #dist = self.agent(data, stddev, temp_weights)
+            dist = self.agent(data, stddev, self.actor_weights)
+            
             action = dist.sample(clip=self.p_workspace.agent.stddev_clip)
             loss = self.criterion(action, target)
             total_test_loss += loss
-        # update actor
-        metrics['bc_train_loss'] = (total_train_loss/epochs).item()
+
+        metrics['bc_train_loss'] = (total_train_loss/self.bc_epochs).item()
 
         return total_test_loss, metrics
     
@@ -107,6 +148,4 @@ obs_type, obs_dim, action_dim, feature_dim, hidden_dim = 'state', 88, 6, 1024,10
 actor = Actor(obs_type, obs_dim, action_dim, feature_dim, hidden_dim).to('cuda')
 
 maml = MAML(actor, f_workspace, p_workspace)
-
 maml.train()
-
